@@ -1,0 +1,32 @@
+# Python environment
+venv/
+.env
+
+# Airflow metadata
+airflow/airflow.db
+airflow/logs/
+
+# DVC cache and temp
+.dvc/
+.dvcignore
+.cache/
+
+# Data files
+data/
+*.csv
+*.json
+*.sqlite
+*.db
+
+# IDE/editor stuff
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS/system files
+.DS_Store
+
+# Airflow and pipeline variables
+variables.json

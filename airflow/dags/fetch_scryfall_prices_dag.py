@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonVirtualenvOperator
 from airflow.models import Variable
-import os
 import sys
 from pathlib import Path
 
@@ -20,6 +19,7 @@ default_args = {
     'email': Variable.get("alert_emails", default_var=[], deserialize_json=True),
     'email_on_failure': True,
     'email_on_retry': True,
+    'email_on_success': True,
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }

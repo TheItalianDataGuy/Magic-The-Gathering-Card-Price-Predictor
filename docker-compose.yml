@@ -9,11 +9,19 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: "False"
     AIRFLOW__CORE__DAG_FOLDER: /opt/airflow/dags
     PYTHONPATH: /opt/airflow:/opt/airflow/src
+    AIRFLOW__SMTP__SMTP_USER: ${SMTP_USER}
+    AIRFLOW__SMTP__SMTP_PASSWORD: ${SMTP_PASSWORD}
+    AIRFLOW__SMTP__SMTP_HOST: ${SMTP_HOST}
+    AIRFLOW__SMTP__SMTP_PORT: ${SMTP_PORT}
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: ${MAIL_FROM}
+    AIRFLOW__SMTP__SMTP_STARTTLS: 'True'
+    AIRFLOW__SMTP__SMTP_SSL: 'False'
   volumes:
     - ./airflow:/opt/airflow
     - ./src:/opt/airflow/src
     - ./data:/opt/airflow/data
     - .env:/opt/airflow/.env
+    - ./variables.json:/opt/airflow/variables.json
   healthcheck:
     test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
     interval: 30s
@@ -65,4 +73,4 @@ services:
     command: python /opt/airflow/src/data_ingestion/fetch_scryfall_prices.py
 
 volumes:
-  postgres-db-volume:
+  postgres-db-volume:  

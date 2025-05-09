@@ -1,42 +1,68 @@
-version: "3.8"
+x-airflow-common: &airflow-common
+  build: .
+  image: mtg-airflow:latest
+  environment:
+    AIRFLOW_HOME: /opt/airflow
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__CORE__DAG_FOLDER: /opt/airflow/dags
+    PYTHONPATH: /opt/airflow:/opt/airflow/src
+  volumes:
+    - ./airflow:/opt/airflow
+    - ./src:/opt/airflow/src
+    - ./data:/opt/airflow/data
+    - .env:/opt/airflow/.env
+  healthcheck:
+    test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
 
 services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: bash -c "airflow db migrate && airflow connections create-default-connections"
+    depends_on:
+      - postgres
+
   airflow-webserver:
-    build: .
-    image: mtg-airflow:latest
+    <<: *airflow-common
+    command: airflow webserver
     restart: always
+    depends_on:
+      - airflow-init
     ports:
       - "8080:8080"
-    environment:
-      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
-      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"
-      AIRFLOW__CORE__DAG_FOLDER: "/opt/airflow/dags"
-      PYTHONPATH: "/opt/airflow:/opt/airflow/src"
-    command: bash -c "airflow db init && airflow variables import /opt/airflow/variables.json && airflow webserver"
-
-    volumes:
-      - ./airflow:/opt/airflow
-      - ./src:/opt/airflow/src
 
   airflow-scheduler:
-    build: .
-    image: mtg-airflow:latest
+    <<: *airflow-common
+    command: airflow scheduler
     restart: always
     depends_on:
       - airflow-webserver
-    command: airflow scheduler
-    environment:
-      AIRFLOW__CORE__DAG_FOLDER: "/opt/airflow/dags"
-      PYTHONPATH: "/opt/airflow:/opt/airflow/src"
-    volumes:
-      - ./airflow:/opt/airflow
-      - ./src:/opt/airflow/src
 
   mtg-fetch:
     build:
       context: .
     container_name: mtg-price-fetch
+    environment:
+      OUTPUT_FILE: /opt/airflow/data/raw/scryfall_data.csv
     volumes:
-      - .:/app
-    command: python src/data_ingestion/fetch_scryfall_prices.py
+      - ./airflow:/opt/airflow
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
+    command: python /opt/airflow/src/data_ingestion/fetch_scryfall_prices.py
+
+volumes:
+  postgres-db-volume:

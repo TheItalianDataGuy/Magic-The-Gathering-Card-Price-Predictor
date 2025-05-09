@@ -54,12 +54,20 @@ def extract_fields(cards_json):
     df = df[['timestamp', 'name', 'id', 'collector_number', 'set', 'rarity', 'usd']]
     return df
 
-# Log the extracted data into a CSV file, appending if it already exists
+
 def log(new_df):
+    # Get the output file path from environment or use default
+    output_file = os.getenv("OUTPUT_FILE", "/opt/airflow/data/raw/scryfall_data.csv")
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
+    # Write to the CSV, appending if it already exists
     if os.path.exists(output_file):
         new_df.to_csv(output_file, mode='a', header=False, index=False)
     else:
         new_df.to_csv(output_file, index=False)
+
     print(f"Appended {len(new_df)} records to {output_file}")
 
 

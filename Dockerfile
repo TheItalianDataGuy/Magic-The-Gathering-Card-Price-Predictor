@@ -17,3 +17,5 @@ RUN pip install --upgrade pip && pip install -r /tmp/requirements.txt
 # Copy entire project
 COPY . /opt/airflow
 
+# Create data directory with correct ownership
+RUN mkdir -p /opt/airflow/data/raw

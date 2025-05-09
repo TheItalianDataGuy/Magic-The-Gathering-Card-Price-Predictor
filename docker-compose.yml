@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  airflow-webserver:
+    build: .
+    image: mtg-airflow:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"
+      AIRFLOW__CORE__DAG_FOLDER: "/opt/airflow/dags"
+      PYTHONPATH: "/opt/airflow:/opt/airflow/src"
+    command: bash -c "airflow db init && airflow variables import /opt/airflow/variables.json && airflow webserver"
+
+    volumes:
+      - ./airflow:/opt/airflow
+      - ./src:/opt/airflow/src
+
+  airflow-scheduler:
+    build: .
+    image: mtg-airflow:latest
+    restart: always
+    depends_on:
+      - airflow-webserver
+    command: airflow scheduler
+    environment:
+      AIRFLOW__CORE__DAG_FOLDER: "/opt/airflow/dags"
+      PYTHONPATH: "/opt/airflow:/opt/airflow/src"
+    volumes:
+      - ./airflow:/opt/airflow
+      - ./src:/opt/airflow/src
+
+  mtg-fetch:
+    build:
+      context: .
+    container_name: mtg-price-fetch
+    volumes:
+      - .:/app
+    command: python src/data_ingestion/fetch_scryfall_prices.py

@@ -1,0 +1,43 @@
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ignore virtual environments
+venv/
+.env/
+.envrc
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore logs and output data
+*.log
+*.csv
+*.tsv
+*.parquet
+*.db
+*.sqlite
+*.pkl
+*.json
+
+# Ignore Airflow working files
+airflow/logs/
+airflow/airflow.db
+
+# Ignore DVC cache
+.cache/
+.dvc/tmp/
+.dvc/cache/
+
+# Ignore Jupyter stuff
+.ipynb_checkpoints/
+*.ipynb
+
+# Ignore Git files
+.git/
+.gitignore
+
+# Ignore OS-level backups
+*~
+*.swp

@@ -8,33 +8,67 @@ mtg_url = 'https://api.scryfall.com/bulk-data'
 data_dir = 'data/raw/'
 output_file = os.path.join(data_dir, 'scryfall_data_csv')
 
-# Get the download URL for the "default_cards" dataset
 def get_url():
+    """
+    Retrieve the download URI for the 'default_cards' bulk data set from the Scryfall API.
+
+    Makes a GET request to the bulk data endpoint, parses the JSON response to find
+    the 'default_cards' type, and returns its download URI.
+
+    Returns:
+        str: URL to download the default_cards JSON bulk data.
+
+    Raises:
+        ValueError: If the 'default_cards' data type is not found in the bulk data response.
+        requests.HTTPError: If the GET request to the bulk data endpoint fails.
+    """
     response = requests.get(mtg_url)
     response.raise_for_status()
     data = response.json()
 
-    # Loop through bulk metadata to find the default_cards JSON
     for item in data['data']:
         if item['type'] == 'default_cards':
             return item['download_uri']
     raise ValueError("Default cards data not found")
 
-# Download the actual card data from the download URL
 def fetch_card_data():
+    """
+    Download the full bulk JSON card data from Scryfall.
+
+    Calls `get_url()` to get the current download URL for default_cards bulk data,
+    then performs a GET request to fetch the full JSON data.
+
+    Returns:
+        list: List of card dictionaries from the bulk data JSON.
+
+    Raises:
+        requests.HTTPError: If the GET request to download the bulk data fails.
+    """
     url = get_url()
     print(f'Fetching bulk data from: {url}')
     response = requests.get(url)
     response.raise_for_status()
     return response.json()
 
-# Extract a subset of useful fields for modeling/logging
 def extract_fields(cards_json):
+    """
+    Extract a subset of useful fields from the raw card JSON data.
+
+    Iterates over each card dictionary, filters out cards without a USD price,
+    and collects selected fields (name, id, set, rarity, collector number, price)
+    with a timestamp.
+
+    Args:
+        cards_json (list): List of card dictionaries.
+
+    Returns:
+        pandas.DataFrame: DataFrame with columns:
+            ['timestamp', 'name', 'id', 'collector_number', 'set', 'rarity', 'usd']
+    """
     records = []
     timestamp = datetime.now().strftime('%d/%m/%Y, %H:%M:%S')
 
     for card in cards_json:
-        # Skip cards without a USD price
         usd_price = card.get('prices', {}).get('usd')
         if usd_price is not None:
             records.append(
@@ -49,20 +83,28 @@ def extract_fields(cards_json):
                 }
             )
     
-    # Columns consistently
     df = pd.DataFrame(records)
+    # Ensure consistent column order
     df = df[['timestamp', 'name', 'id', 'collector_number', 'set', 'rarity', 'usd']]
     return df
 
-
 def log(new_df):
-    # Get the output file path from environment or use default
+    """
+    Append or create the CSV file to store the extracted card data.
+
+    Uses environment variable 'OUTPUT_FILE' for file path if set,
+    otherwise defaults to '/opt/airflow/data/raw/scryfall_data.csv'.
+
+    Creates the directory if it does not exist.
+    Appends without header if the file exists; otherwise creates a new file.
+
+    Args:
+        new_df (pandas.DataFrame): DataFrame of new records to log.
+    """
     output_file = os.getenv("OUTPUT_FILE", "/opt/airflow/data/raw/scryfall_data.csv")
 
-    # Ensure the directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
-    # Write to the CSV, appending if it already exists
     if os.path.exists(output_file):
         new_df.to_csv(output_file, mode='a', header=False, index=False)
     else:
@@ -70,19 +112,22 @@ def log(new_df):
 
     print(f"Appended {len(new_df)} records to {output_file}")
 
-
-# Run the complete ingestion pipeline
 def main():
+    """
+    Main ingestion pipeline function.
+
+    Fetches the full bulk card data JSON, extracts relevant fields into a DataFrame,
+    performs a safety check to ensure data is present,
+    and logs the data to CSV file.
+    """
     cards_json = fetch_card_data()
     df = extract_fields(cards_json)
 
-    # Safety check to prevent writing empty or None data
     if df is None or df.empty:
         print('No data to log.')
         return
     
     log(df)
-
 
 if __name__ == '__main__':
     main()

@@ -30,3 +30,4 @@ __pycache__/
 
 # Airflow and pipeline variables
 variables.json.env
+variables.json

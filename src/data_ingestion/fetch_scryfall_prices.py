@@ -3,7 +3,11 @@ import logging
 import requests
 import pandas as pd
 from datetime import datetime
+from datetime import timezone
 from requests.exceptions import RequestException
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure logging for clear debug/info/error messages
 logging.basicConfig(
@@ -80,7 +84,7 @@ def extract_fields(cards_json):
                           collector_number, set, rarity, and USD price.
     """
     records = []
-    timestamp = datetime.now().strftime('%d/%m/%Y, %H:%M:%S')
+    timestamp = datetime.now(timezone.utc).isoformat()
 
     for card in cards_json:
         usd_price = card.get('prices', {}).get('usd')
@@ -112,7 +116,8 @@ def log(new_df):
     Args:
         new_df (pandas.DataFrame): DataFrame containing card records to save.
     """
-    output_file = os.getenv("SCRYFALL_OUTPUT_FILE", "/opt/airflow/data/raw/scryfall_data.csv")
+    output_file = os.getenv("SCRYFALL_OUTPUT_FILE", "./data/raw/scryfall_data.csv")
+    print("Writing to:", output_file)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     if os.path.exists(output_file):

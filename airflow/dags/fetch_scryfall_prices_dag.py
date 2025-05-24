@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.operators.python import PythonVirtualenvOperator
+from airflow.operators.python import PythonOperator
 from airflow.models import Variable
 import sys
 from pathlib import Path
@@ -11,7 +11,6 @@ sys.path.append(str(project_src))
 
 from data_ingestion.fetch_scryfall_prices import main
 
-# Configure default arguments, including email settings for alerts
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -24,20 +23,17 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Instantiate the DAG
 dag = DAG(
     'fetch_scryfall_prices',
     default_args=default_args,
-    description='Daily run of fetch_scryfall_prices.py using Airflow with venv & email alerts',
-    schedule_interval='0 8 * * *',  # runs every day at 8:00 AM
+    description='Daily run of fetch_scryfall_prices.py using Airflow',
+    schedule_interval='0 8 * * *',
     catchup=False,
+    tags=['scryfall', 'prices'],
 )
 
-# Define the PythonVirtualenvOperator to run the main function from fetch_scryfall_prices.py
-run_fetch_scryfall = PythonVirtualenvOperator(
+run_fetch_scryfall = PythonOperator(
     task_id='run_fetch_scryfall_prices',
     python_callable=main,
-    requirements=['requests', 'pandas'],
-    system_site_packages=False,
     dag=dag,
 )

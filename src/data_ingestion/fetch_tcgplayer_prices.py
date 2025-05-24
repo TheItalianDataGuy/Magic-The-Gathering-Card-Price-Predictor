@@ -54,7 +54,7 @@ def get_bearer_token():
         logger.error(f"RequestException in get_bearer_token: {e}")
         return None
 
-def search_products(card_name: str, token: str):
+def search_products(card_name, token):
     """
     Search TCGPlayer product catalog for cards matching the given name.
 
@@ -80,7 +80,7 @@ def search_products(card_name: str, token: str):
         logger.error(f"RequestException in search_products({card_name}): {e}")
         return []
 
-def get_set_name(group_id: int, token: str) -> str:
+def get_set_name(group_id, token):
     """
     Retrieve the human-readable set name from a TCGPlayer group ID.
 
@@ -108,7 +108,7 @@ def get_set_name(group_id: int, token: str) -> str:
         logger.error(f"JSON decode error in get_set_name({group_id}): {e}")
         return ""
 
-def fetch_price(product_id: int, token: str) -> dict:
+def fetch_price(product_id, token):
     """
     Fetch current pricing details for a product by its product ID.
 
@@ -133,7 +133,7 @@ def fetch_price(product_id: int, token: str) -> dict:
         logger.error(f"RequestException in fetch_price({product_id}): {e}")
         return {}
 
-def extract_records(cards_and_sets: list) -> pd.DataFrame:
+def extract_records(cards_and_sets):
     """
     For each (card_name, set_name), search TCGPlayer catalog, find matching product,
     fetch current prices, and collect records in a DataFrame.
@@ -183,7 +183,7 @@ def extract_records(cards_and_sets: list) -> pd.DataFrame:
 
     return pd.DataFrame(records)
 
-def log(df: pd.DataFrame):
+def log(df):
     """
     Append records DataFrame to CSV file, creating it if it doesn't exist.
 

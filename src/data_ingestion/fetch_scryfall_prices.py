@@ -1,69 +1,83 @@
+import os
+import logging
 import requests
 import pandas as pd
 from datetime import datetime
-import os
+from requests.exceptions import RequestException
 
-# Configuration
+# Configure logging for clear debug/info/error messages
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Configuration URL for bulk data metadata
 mtg_url = 'https://api.scryfall.com/bulk-data'
-data_dir = 'data/raw/'
-output_file = os.path.join(data_dir, 'scryfall_data_csv')
 
 def get_url():
     """
-    Retrieve the download URI for the 'default_cards' bulk data set from the Scryfall API.
+    Retrieve the download URL for the 'default_cards' bulk data JSON from Scryfall.
 
-    Makes a GET request to the bulk data endpoint, parses the JSON response to find
-    the 'default_cards' type, and returns its download URI.
+    Makes a GET request to the Scryfall bulk data endpoint and searches for
+    the 'default_cards' type to obtain the current download URI.
 
     Returns:
-        str: URL to download the default_cards JSON bulk data.
+        str: URL pointing to the bulk JSON data for default cards.
 
     Raises:
-        ValueError: If the 'default_cards' data type is not found in the bulk data response.
-        requests.HTTPError: If the GET request to the bulk data endpoint fails.
+        RequestException: If the HTTP request fails.
+        ValueError: If 'default_cards' data is not found in the response.
     """
-    response = requests.get(mtg_url)
-    response.raise_for_status()
-    data = response.json()
-
-    for item in data['data']:
-        if item['type'] == 'default_cards':
-            return item['download_uri']
-    raise ValueError("Default cards data not found")
+    try:
+        response = requests.get(mtg_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        for item in data['data']:
+            if item['type'] == 'default_cards':
+                logger.info(f"Found default_cards download URL: {item['download_uri']}")
+                return item['download_uri']
+        raise ValueError("Default cards data not found")
+    except RequestException as e:
+        logger.error(f"Failed to get bulk data URL: {e}")
+        raise
 
 def fetch_card_data():
     """
-    Download the full bulk JSON card data from Scryfall.
+    Download the full bulk card data JSON from Scryfall.
 
-    Calls `get_url()` to get the current download URL for default_cards bulk data,
-    then performs a GET request to fetch the full JSON data.
+    Calls get_url() to retrieve the download URL, then performs
+    a GET request to download the complete bulk data.
 
     Returns:
-        list: List of card dictionaries from the bulk data JSON.
+        list: List of card dictionaries parsed from JSON.
 
     Raises:
-        requests.HTTPError: If the GET request to download the bulk data fails.
+        RequestException: If the HTTP request fails.
     """
-    url = get_url()
-    print(f'Fetching bulk data from: {url}')
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json()
+    try:
+        url = get_url()
+        logger.info(f"Fetching bulk data from: {url}")
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except RequestException as e:
+        logger.error(f"Failed to fetch bulk card data: {e}")
+        raise
 
 def extract_fields(cards_json):
     """
-    Extract a subset of useful fields from the raw card JSON data.
+    Extract selected fields from the raw Scryfall card JSON data.
 
-    Iterates over each card dictionary, filters out cards without a USD price,
-    and collects selected fields (name, id, set, rarity, collector number, price)
-    with a timestamp.
+    Filters cards that have a USD price, and constructs a list of
+    dictionaries with relevant fields plus a timestamp.
 
     Args:
-        cards_json (list): List of card dictionaries.
+        cards_json (list): List of card dictionaries from Scryfall bulk data.
 
     Returns:
-        pandas.DataFrame: DataFrame with columns:
-            ['timestamp', 'name', 'id', 'collector_number', 'set', 'rarity', 'usd']
+        pandas.DataFrame: DataFrame containing timestamp, name, id,
+                          collector_number, set, rarity, and USD price.
     """
     records = []
     timestamp = datetime.now().strftime('%d/%m/%Y, %H:%M:%S')
@@ -71,63 +85,61 @@ def extract_fields(cards_json):
     for card in cards_json:
         usd_price = card.get('prices', {}).get('usd')
         if usd_price is not None:
-            records.append(
-                {
-                    'timestamp': timestamp,
-                    'name': card['name'],
-                    'id': card['id'],
-                    'collector_number': card['collector_number'],
-                    'set': card['set'],
-                    'rarity': card['rarity'],
-                    'usd': float(usd_price)
-                }
-            )
-    
+            records.append({
+                'timestamp': timestamp,
+                'name': card['name'],
+                'id': card['id'],
+                'collector_number': card['collector_number'],
+                'set': card['set'],
+                'rarity': card['rarity'],
+                'usd': float(usd_price)
+            })
+
     df = pd.DataFrame(records)
-    # Ensure consistent column order
     df = df[['timestamp', 'name', 'id', 'collector_number', 'set', 'rarity', 'usd']]
+    logger.info(f"Extracted {len(df)} records with USD prices.")
     return df
 
 def log(new_df):
     """
-    Append or create the CSV file to store the extracted card data.
+    Append or create a CSV file to save extracted card data.
 
-    Uses environment variable 'OUTPUT_FILE' for file path if set,
-    otherwise defaults to '/opt/airflow/data/raw/scryfall_data.csv'.
+    Uses the SCRYFALL_OUTPUT_FILE environment variable if set; otherwise
+    defaults to '/opt/airflow/data/raw/scryfall_data.csv'.
 
-    Creates the directory if it does not exist.
-    Appends without header if the file exists; otherwise creates a new file.
+    Creates the directory path if it does not exist.
 
     Args:
-        new_df (pandas.DataFrame): DataFrame of new records to log.
+        new_df (pandas.DataFrame): DataFrame containing card records to save.
     """
-    output_file = os.getenv("OUTPUT_FILE", "/opt/airflow/data/raw/scryfall_data.csv")
-
+    output_file = os.getenv("SCRYFALL_OUTPUT_FILE", "/opt/airflow/data/raw/scryfall_data.csv")
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     if os.path.exists(output_file):
         new_df.to_csv(output_file, mode='a', header=False, index=False)
+        logger.info(f"Appended {len(new_df)} records to existing file: {output_file}")
     else:
         new_df.to_csv(output_file, index=False)
-
-    print(f"Appended {len(new_df)} records to {output_file}")
+        logger.info(f"Created new file and wrote {len(new_df)} records: {output_file}")
 
 def main():
     """
-    Main ingestion pipeline function.
-
-    Fetches the full bulk card data JSON, extracts relevant fields into a DataFrame,
-    performs a safety check to ensure data is present,
-    and logs the data to CSV file.
+    Run the full ingestion pipeline:
+    - Fetch bulk card data from Scryfall
+    - Extract relevant fields for modeling
+    - Log data to CSV file with appropriate logging and error handling
     """
-    cards_json = fetch_card_data()
-    df = extract_fields(cards_json)
+    try:
+        cards_json = fetch_card_data()
+        df = extract_fields(cards_json)
 
-    if df is None or df.empty:
-        print('No data to log.')
-        return
-    
-    log(df)
+        if df.empty:
+            logger.warning("No data to log.")
+            return
+
+        log(df)
+    except Exception as e:
+        logger.error(f"Pipeline failed: {e}")
 
 if __name__ == '__main__':
     main()

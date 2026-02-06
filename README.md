@@ -108,6 +108,28 @@ Airflow runs using:
 
 ---
 
+# Monitoring (planned)
+
+Future work:
+- data quality checks (nulls, negative prices, schema drift)
+- anomaly detection on price jumps
+- Airflow alerts via email
+
+Not implemented yet.
+
+---
+
+# Training (planned)
+
+Future work:
+- backtesting utilities
+- model selection/benchmarking
+- saving artefacts under models/
+
+Not implemented yet.
+
+---
+
 ## Configuration
 
 Configuration is handled via environment variables:

@@ -1,3 +1,15 @@
+"""
+TCGPlayer price ingestion (optional / future work).
+
+This module demonstrates how to authenticate with the TCGPlayer API
+and retrieve live market prices for Magic: The Gathering cards.
+
+Status:
+- Not integrated into the main pipeline
+- Requires paid API credentials
+- Kept for roadmap completeness and future extension
+"""
+
 import os
 import requests
 import pandas as pd

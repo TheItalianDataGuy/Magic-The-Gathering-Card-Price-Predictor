@@ -1,22 +1,23 @@
 """
-Pipeline entry point.
+Pipeline entry point (happy path).
 
-Runs the complete happy path:
-1) Ingest raw prices from Scryfall (append-only)
-2) Build daily dataset (processed)
-3) Forecast all cards for the next 7 days
-4) Write a lightweight run record (tracking)
+Runs:
+    1) Scryfall ingestion (raw snapshots)
+    2) Daily dataset build (processed)
+    3) Forecast for all cards (predictions + tracking)
 
-Usage (recommended):
+Recommended usage:
     python -m src.data_ingestion.run_data_pipeline
 """
 
+from __future__ import annotations
+
 from src.data_ingestion.fetch_scryfall_prices import main as fetch_scryfall
-from src.processing.build_daily_dataset import main as build_daily_dataset
 from src.forecasting.forecast_all_cards import main as forecast_all_cards
+from src.processing.build_daily_dataset import main as build_daily_dataset
 
 
-def main():
+def main() -> None:
     fetch_scryfall()
     build_daily_dataset()
     forecast_all_cards()

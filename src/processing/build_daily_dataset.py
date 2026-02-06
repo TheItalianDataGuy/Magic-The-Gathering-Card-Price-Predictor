@@ -1,5 +1,21 @@
+"""
+Build daily MTG price dataset.
+
+Input:
+- data/raw/scryfall_data.csv
+
+Output:
+- data/processed/daily_prices.csv
+
+Logic:
+- Parse timestamps
+- Aggregate to daily frequency per card
+- Keep latest observation per day
+"""
+
 import os
 import pandas as pd
+import logging
 
 
 def main():
@@ -25,7 +41,10 @@ def main():
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     daily.to_csv(out_path, index=False)
 
-    print(f"Wrote daily dataset: {out_path} ({len(daily)} rows)")
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"Wrote daily dataset: {out_path} ({len(daily)} rows)")
 
 
 if __name__ == "__main__":

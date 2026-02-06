@@ -9,7 +9,7 @@ Output:
 
 Method (robust baseline, per card):
 - If >= 14 observations: EWMA forecast (flat) + optional small drift
-- If 7–13 observations: moving average (flat)
+- If 7-13 observations: moving average (flat)
 - If < 7 observations: naive last value
 
 This is designed to always run for ALL cards without crashing.
@@ -21,6 +21,7 @@ from datetime import timedelta
 
 import numpy as np
 import pandas as pd
+from src.utils.tracking import log_run_metadata, log_metrics
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -115,6 +116,27 @@ def main():
             )
 
     out_df = pd.DataFrame(forecasts)
+
+    # Log metrics
+    method_counts = out_df["method"].value_counts().to_dict()
+
+    log_run_metadata(
+        run_id,
+        {
+            "horizon_days": horizon_days,
+            "input_path": in_path,
+            "output_path": out_path,
+            "n_cards": n_cards,
+        },
+    )
+
+    log_metrics(
+        run_id,
+        {
+            "n_forecast_rows": len(out_df),
+            "method_breakdown": method_counts,
+        },
+    )
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     out_df.to_csv(out_path, index=False)

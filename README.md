@@ -194,3 +194,20 @@ The pipeline is containerised and designed to be orchestrated via Apache Airflow
 - Data quality checks on processed inputs
 - Alerting and orchestration-level monitoring
 - API-based inference services
+
+---
+
+## ARIMA Models (Offline Evaluation)
+
+The repository includes an ARIMA training and evaluation module under `src/training/`.
+
+ARIMA models are **not part of the default forecasting pipeline**. They are evaluated
+offline using walk-forward backtesting on a selected subset of cards with sufficient
+historical data.
+
+At present, the dataset contains only a single daily observation per card
+(due to limited time-series history), therefore **no cards currently meet the
+minimum data requirements for ARIMA training**.
+
+The ARIMA evaluation pipeline is fully implemented and will become active
+automatically once sufficient multi-day price history is collected.

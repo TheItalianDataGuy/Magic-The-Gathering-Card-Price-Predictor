@@ -482,3 +482,6 @@ yarg==0.1.9
 yarl==1.19.0
 zc.lockfile==3.0.post1
 zipp==3.17.0
+statsmodels>=0.14.0
+matplotlib>=3.8.0
+

@@ -1,36 +1,129 @@
-# MTG Price Forecasting Pipeline
+# Magic: The Gathering Price Forecasting Pipeline
 
-End-to-end data pipeline for collecting and analysing **Magic: The Gathering card prices**, with a focus on data ingestion, orchestration, and future forecasting.
+An end-to-end **time series data pipeline** for collecting, processing, forecasting, and monitoring Magic: The Gathering card prices.
 
-This project is designed as a **portfolio-grade data engineering / MLOps project**, emphasising clean architecture, reproducibility, and extensibility rather than ad-hoc scripts.
+This project is designed as a **portfolio-grade data engineering / analytics engineering project**, with a strong emphasis on:
+- reproducibility
+- scalability
+- robustness
+- clear separation of pipeline stages
 
----
-
-## Project Goals
-
-- Collect up-to-date MTG card prices from public APIs  
-- Store raw price data in a reproducible and auditable way  
-- Orchestrate ingestion using **Apache Airflow**  
-- Prepare the ground for **price forecasting and monitoring**  
-- Demonstrate production-oriented Python practices  
+rather than on a single complex model.
 
 ---
 
-## Current Status
+## Project Overview
 
-### Implemented
-- Scryfall bulk data ingestion (USD prices)
-- CSV-based raw data storage
-- Dockerised environment
-- Apache Airflow orchestration
-- Logging and error handling
-- Environment-variable based configuration
+The pipeline ingests MTG card price data from public APIs, processes it into a clean daily time series, generates **7-day forecasts for all cards**, and records run-level metadata and data quality metrics for traceability.
 
-### Planned
-- Daily price aggregation
-- Baseline forecasting models (moving average / ARIMA)
-- Optional market comparison (TCGPlayer, eBay)
-- Monitoring and anomaly detection
+The system is designed to run:
+- locally (Python)
+- in containers (Docker)
+- under orchestration (Apache Airflow)
+
+---
+
+## Pipeline Stages
+
+### 1. Data Ingestion
+**Source:** Scryfall bulk data API  
+
+- Downloads the latest card data snapshot
+- Extracts cards with available USD prices
+- Appends records to an append-only raw dataset
+
+**Output**
+```
+data/raw/scryfall_data.csv
+```
+
+Each record includes:
+- timestamp of ingestion
+- card id, name, set, rarity
+- USD price
+
+This layer preserves a full audit trail of price snapshots over time.
+
+---
+
+### 2. Data Processing (Daily Aggregation)
+
+Raw price snapshots are transformed into a clean daily dataset suitable for time series forecasting.
+
+Processing logic:
+- parse timestamps
+- normalise to daily frequency
+- group by `(date, card_id)`
+- keep the latest observation per day
+
+**Output**
+```
+data/processed/daily_prices.csv
+```
+
+Result:
+- one row per card per day
+- stable schema
+- reproducible inputs for forecasting
+
+---
+
+### 3. Forecasting (Baseline Models)
+
+The pipeline generates **7-day forecasts for every card** using robust statistical baselines.
+
+Forecasting strategy (per card):
+- **< 7 observations** → naive last-value forecast  
+- **7–13 observations** → 7-day moving average  
+- **≥ 14 observations** → EWMA (exponentially weighted moving average)
+
+This tiered approach ensures:
+- the pipeline never crashes on short histories
+- all cards receive a forecast
+- results scale to large numbers of time series
+
+**Output**
+```
+data/predictions/forecast_7d.csv
+```
+
+---
+
+### 4. Run Tracking
+
+Each forecasting run is tracked with a unique run ID.
+
+For every run, the pipeline records:
+- input and output paths
+- forecast horizon
+- number of cards processed
+- method breakdown
+- timestamp of execution
+
+**Outputs**
+```
+models/runs/<run_id>/run.json
+models/runs/<run_id>/metrics.json
+```
+
+This provides full traceability and reproducibility without heavy external tooling.
+
+---
+
+### 5. Data Quality Monitoring (Basic)
+
+Basic **data quality monitoring** is integrated into the forecasting stage.
+
+Checks include:
+- expected row counts (cards × forecast horizon)
+- missing predictions
+- non-positive forecast values
+- forecast value ranges
+- method distribution
+
+These checks are logged per run and stored alongside tracking metrics.
+
+This monitoring focuses on **pipeline and data integrity**, not model performance or drift (which are planned extensions).
 
 ---
 
@@ -38,153 +131,66 @@ This project is designed as a **portfolio-grade data engineering / MLOps project
 
 ```
 .
-├── airflow/
-│   ├── dags/                # Airflow DAG definitions
-│   ├── logs/
-│   ├── data/
-│   └── airflow.cfg
-│
 ├── src/
 │   ├── data_ingestion/
-│   │   ├── fetch_scryfall_prices.py   # Main ingestion source (active)
-│   │   ├── fetch_tcgplayer_prices.py  # Optional / future source
-│   │   ├── run_data_pipeline.py       # Pipeline entry point
-│   │   └── __init__.py
-│   │
-│   ├── forecasting/          # Planned forecasting module
-│   ├── training/             # Planned training module
-│   └── monitoring/           # Planned monitoring module
+│   │   ├── fetch_scryfall_prices.py
+│   │   └── run_data_pipeline.py
+│   ├── processing/
+│   │   └── build_daily_dataset.py
+│   ├── forecasting/
+│   │   └── forecast_all_cards.py
+│   ├── monitoring/
+│   │   └── data_quality.py
+│   └── utils/
+│       └── tracking.py
 │
 ├── data/
-│   └── raw/                  # Generated raw datasets (gitignored)
+│   ├── raw/
+│   ├── processed/
+│   └── predictions/
+│
+├── models/
+│   └── runs/
 │
 ├── docker-compose.yml
 ├── Dockerfile
 ├── requirements.txt
-├── variables.json            # Airflow variables
 └── README.md
 ```
 
 ---
 
-## Data Ingestion
-
-### Scryfall (active)
-
-- Uses the Scryfall bulk data API
-- Extracts cards with available USD prices
-- Stores records with:
-  - timestamp  
-  - card name  
-  - card ID  
-  - set  
-  - rarity  
-  - USD price  
-
-Example output:
-
-```
-data/raw/scryfall_data.csv
-```
-
-The ingestion pipeline can be executed:
-- locally via Python
-- inside Docker
-- on a schedule via Airflow
-
----
-
-## Orchestration (Airflow)
-
-The project includes an Airflow DAG that:
-- runs the Scryfall ingestion task
-- logs execution details
-- is designed to be extended with downstream tasks
-
-Airflow runs using:
-- LocalExecutor
-- PostgreSQL metadata database
-- Docker Compose for reproducibility
-
----
-
-# Monitoring (planned)
-
-Future work:
-- data quality checks (nulls, negative prices, schema drift)
-- anomaly detection on price jumps
-- Airflow alerts via email
-
-Not implemented yet.
-
----
-
-# Training (planned)
-
-Future work:
-- backtesting utilities
-- model selection/benchmarking
-- saving artefacts under models/
-
-Not implemented yet.
-
----
-
-## Configuration
-
-Configuration is handled via environment variables:
-- API keys (where required)
-- Output paths
-- SMTP settings for future alerting
-
-Sensitive data is **not committed** to the repository.
-
----
-
 ## How to Run
 
-### Local (without Airflow)
+### Local execution
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-python src/data_ingestion/fetch_scryfall_prices.py
+python -m src.processing.build_daily_dataset
+python -m src.forecasting.forecast_all_cards
 ```
+
+### Docker / Airflow
+The pipeline is containerised and designed to be orchestrated via Apache Airflow with separate tasks for:
+- ingestion
+- processing
+- forecasting
 
 ---
 
-### Docker + Airflow
+## Design Principles
 
-```bash
-docker compose up -d
-```
-
-Then open the Airflow UI:
-
-```
-http://localhost:8080
-```
-
-(Login credentials are created during the Airflow init step.)
+- **Baseline-first forecasting:** establish robust statistical baselines before introducing complex models  
+- **Fail-safe pipeline:** all cards receive forecasts regardless of history length  
+- **Clear stage ownership:** each pipeline step is responsible for its own outputs  
+- **Traceability:** every run produces metadata and metrics  
+- **Extensibility:** advanced models (e.g. ARIMA), backtesting, and drift monitoring can be added without refactoring the core pipeline  
 
 ---
 
-## Why This Project
+## Planned Extensions
 
-This project is intentionally scoped to:
-- demonstrate **realistic data engineering patterns**
-- avoid unnecessary over-engineering
-- remain extensible for forecasting and monitoring
-
-It complements model-heavy projects by focusing on **data reliability, orchestration, and maintainability**.
-
----
-
-## Next Steps
-
-- Aggregate daily prices per card
-- Implement simple baseline forecasts
-- Add data quality and anomaly checks
-- Extend ingestion to additional marketplaces (optional)
+- Advanced forecasting models for selected cards (e.g. ARIMA)
+- Backtesting and model performance metrics
+- Data quality checks on processed inputs
+- Alerting and orchestration-level monitoring
+- API-based inference services

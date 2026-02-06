@@ -17,11 +17,12 @@ This is designed to always run for ALL cards without crashing.
 
 import os
 import logging
-from datetime import timedelta
 
 import numpy as np
 import pandas as pd
 from src.utils.tracking import log_run_metadata, log_metrics
+from src.monitoring.data_quality import check_forecast_dataset
+
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -117,7 +118,14 @@ def main():
 
     out_df = pd.DataFrame(forecasts)
 
-    # Log metrics
+    # Write forecasts first (so monitoring can read the output file)
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    out_df.to_csv(out_path, index=False)
+
+    # Monitoring: validate forecast output
+    forecast_quality = check_forecast_dataset(out_path, horizon_days)
+
+    # Tracking metrics
     method_counts = out_df["method"].value_counts().to_dict()
 
     log_run_metadata(
@@ -135,14 +143,13 @@ def main():
         {
             "n_forecast_rows": len(out_df),
             "method_breakdown": method_counts,
+            "forecast_data_quality": forecast_quality,
         },
     )
 
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    out_df.to_csv(out_path, index=False)
-
     logger.info(f"Wrote forecasts: {out_path} ({len(out_df)} rows)")
     logger.info("Done.")
+
 
 
 if __name__ == "__main__":

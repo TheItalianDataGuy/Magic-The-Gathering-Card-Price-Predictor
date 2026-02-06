@@ -33,7 +33,6 @@ def main():
     # keep latest per day per card id
     df = df.sort_values("timestamp")
     daily = df.groupby(["date", "id"], as_index=False).tail(1)
-    daily = daily[["date", "id", "name", "set", "rarity", "usd"]]
 
     # select columns
     daily = daily[["date", "id", "name", "set", "rarity", "usd"]]
